@@ -83,7 +83,7 @@ def get_dataloaders(processor, train_dir, val_dir, batch_size=5):
     
     return train_dataloader, val_dataloader
 
-def train_model(model, processor, train_dir, val_dir, epochs=100, batch_size=16, lr=1e-4):
+def train_model(model, processor, train_dir, val_dir, epochs=100, batch_size=16, lr=1e-3):
     """ 모델 학습 """
     train_dataloader, val_dataloader = get_dataloaders(processor, train_dir, val_dir, batch_size)
     optimizer = get_optimizer(model, lr)

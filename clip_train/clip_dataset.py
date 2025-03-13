@@ -26,16 +26,7 @@ class ImageTextDataset(Dataset):
             image = self.transform(image)
         # 라벨 추출
         if "negative" in image_path:
-            y = "no stabbed"
-        elif "positive" in image_path:
-            y = "stabbed exist"
-
-            # stabbed 숫자 체크
-            try:
-                n_stabbed = int(image_path.split("_")[-1].replace(".bmp", ""))
-                y = f"{n_stabbed} stabbed exists"
-            except ValueError:
-                y = "1 stabbed exists"
+            y = "stabbed not exist"
         else:
             y = "stabbed exist"
         # processor
