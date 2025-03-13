@@ -125,7 +125,7 @@ class OWLVITCLIPModel:
                 loss.backward()
                 optimizer.step()
                 total_loss += loss.item()
-
+                break
             val_loss = self.validate(val_dataloader, contrastive_loss)
             logging.info(f"Epoch {epoch+1} | Train Loss: {total_loss / len(train_dataloader):.4f} | Val Loss: {val_loss:.4f}")
 

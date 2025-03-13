@@ -1,4 +1,4 @@
-from .clip_model import OWLVITCLIPModel
+from clip_model import OWLVITCLIPModel
 
 
 
@@ -13,4 +13,4 @@ if __name__ == "__main__":
         batch_size=16,
         lr=1e-2
     )
-    "./ckpt/20250313_172710/best_model.pth"
+    # "./ckpt/20250313_172710/best_model.pth"
