@@ -37,10 +37,10 @@ def load_model():
     trainable_layers = [
         model.owlvit.text_projection,  # 텍스트 임베딩 투영
         model.owlvit.visual_projection,  # 비전 임베딩 투영
-        model.owlvit.text_model.encoder.layers[-2:],  # 텍스트 모델 마지막 두 개 레이어
-        model.owlvit.vision_model.encoder.layers[-2:],
-        model.owlvit.text_model.final_layer_norm,
-        model.owlvit.vision_model.post_layernorm
+        # model.owlvit.text_model.encoder.layers[-2:],  # 텍스트 모델 마지막 두 개 레이어
+        # model.owlvit.vision_model.encoder.layers[-2:],
+        # model.owlvit.text_model.final_layer_norm,
+        # model.owlvit.vision_model.post_layernorm
           # 비전 모델 마지막 두 개 레이어
     ]
     
@@ -83,7 +83,7 @@ def get_dataloaders(processor, train_dir, val_dir, batch_size=5):
     
     return train_dataloader, val_dataloader
 
-def train_model(model, processor, train_dir, val_dir, epochs=10, batch_size=16, lr=1e-4):
+def train_model(model, processor, train_dir, val_dir, epochs=100, batch_size=16, lr=1e-4):
     """ 모델 학습 """
     train_dataloader, val_dataloader = get_dataloaders(processor, train_dir, val_dir, batch_size)
     optimizer = get_optimizer(model, lr)
@@ -121,7 +121,7 @@ def train_model(model, processor, train_dir, val_dir, epochs=10, batch_size=16, 
         val_loss = validate_model(model, val_dataloader, contrastive_loss)
         logging.info(f"Epoch {epoch+1} | Train Loss: {total_loss / len(train_dataloader):.4f} | Val Loss: {val_loss:.4f}")
         
-        save_checkpoint(model, optimizer, epoch, total_loss, val_loss, ckpt_dir, best_val_loss)
+        best_val_loss = save_checkpoint(model, optimizer, epoch, total_loss, val_loss, ckpt_dir, best_val_loss)
 
 def validate_model(model, dataloader, contrastive_loss):
     """ 검증 루프 """
@@ -162,6 +162,8 @@ def save_checkpoint(model, optimizer, epoch, train_loss, val_loss, ckpt_dir, bes
     if val_loss < best_val_loss:
         torch.save(checkpoint, f"{ckpt_dir}/best_model.pth")
         logging.info(f"🔹 Best model updated at {ckpt_dir}/best_model.pth")
+        best_val_loss = val_loss
+    return best_val_loss
 
 if __name__ == "__main__":
     model, processor = load_model()
