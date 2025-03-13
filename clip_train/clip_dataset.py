@@ -34,7 +34,8 @@ class ImageTextDataset(Dataset):
                 y = f"{n_stabbed} stabbed exists"
             except ValueError:
                 y = "1 stabbed exists"
-
+        else:
+            y = "stabbed exist"
         # processor
         inputs = self.processor(text=y, images=image, return_tensors="pt")
 

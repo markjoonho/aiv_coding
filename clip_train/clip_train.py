@@ -111,7 +111,7 @@ def train_model(model, processor, train_dir, val_dir, epochs=10, batch_size=5, l
             loss.backward()
             optimizer.step()
             total_loss += loss.item()
-        
+            break
         val_loss = validate_model(model, val_dataloader, contrastive_loss)
         logging.info(f"Epoch {epoch+1} | Train Loss: {total_loss / len(train_dataloader):.4f} | Val Loss: {val_loss:.4f}")
         
@@ -132,12 +132,11 @@ def validate_model(model, dataloader, contrastive_loss):
                 input_ids=input_ids,
                 attention_mask=attention_mask
             )
-            
             vision_embeds = outputs.image_embeds.mean(dim=(1, 2))
             text_embeds = outputs.text_embeds.squeeze(1)
             
-            vision_embeds = model.owlvit.vision_model.projection(vision_embeds)
-            text_embeds = model.owlvit.text_model.projection(text_embeds)
+            vision_embeds = model.owlvit.visual_projection(vision_embeds)
+            text_embeds = model.owlvit.text_projection(text_embeds)
             
             loss = contrastive_loss(vision_embeds, text_embeds)
             total_loss += loss.item()
