@@ -165,4 +165,4 @@ def save_checkpoint(model, optimizer, epoch, train_loss, val_loss, ckpt_dir, bes
 
 if __name__ == "__main__":
     model, processor = load_model()
-    train_model(model, processor, "./train_dataset/positive/", "./validation")
+    train_model(model, processor, "./total_dataset/train_dataset/", "./total_dataset/validation/")
