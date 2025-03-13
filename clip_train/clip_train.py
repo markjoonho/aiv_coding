@@ -64,7 +64,14 @@ def get_optimizer(model, lr=1e-4):
 
 def get_dataloaders(processor, train_dir, val_dir, batch_size=5):
     """ 데이터 로더 생성 """
-    train_dataset = ImageTextDataset(train_dir, processor)
+    transform = transforms.Compose([
+        transforms.RandomHorizontalFlip(p=0.5),  # 좌우 반전
+        transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),  # 색상 변화
+        transforms.RandomRotation(degrees=15),  # 회전
+        transforms.RandomAffine(degrees=0, translate=(0.1, 0.1)),  # 이동 변환
+    ])
+
+    train_dataset = ImageTextDataset(train_dir, processor, transform=transform)
     val_dataset = ImageTextDataset(val_dir, processor)
     
     train_dataloader = DataLoader(
@@ -76,7 +83,7 @@ def get_dataloaders(processor, train_dir, val_dir, batch_size=5):
     
     return train_dataloader, val_dataloader
 
-def train_model(model, processor, train_dir, val_dir, epochs=10, batch_size=5, lr=1e-4):
+def train_model(model, processor, train_dir, val_dir, epochs=10, batch_size=16, lr=1e-4):
     """ 모델 학습 """
     train_dataloader, val_dataloader = get_dataloaders(processor, train_dir, val_dir, batch_size)
     optimizer = get_optimizer(model, lr)
@@ -111,7 +118,6 @@ def train_model(model, processor, train_dir, val_dir, epochs=10, batch_size=5, l
             loss.backward()
             optimizer.step()
             total_loss += loss.item()
-            break
         val_loss = validate_model(model, val_dataloader, contrastive_loss)
         logging.info(f"Epoch {epoch+1} | Train Loss: {total_loss / len(train_dataloader):.4f} | Val Loss: {val_loss:.4f}")
         
