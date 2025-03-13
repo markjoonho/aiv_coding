@@ -175,6 +175,7 @@ cython_debug/
 
 train_dataset
 train
+test
 validation
 cutmix_visualizations
 *.pth
