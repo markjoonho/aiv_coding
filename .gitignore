@@ -176,7 +176,9 @@ cython_debug/
 train_dataset
 train
 validation
+test
 cutmix_visualizations
 *.pth
 ckpt
 .DS_Store
+total_dataset
