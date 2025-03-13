@@ -172,3 +172,11 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+train_dataset
+train
+validation
+cutmix_visualizations
+*.pth
+ckpt
+.DS_Store
