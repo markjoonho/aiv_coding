@@ -16,20 +16,46 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 
 # 디바이스 설정
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
 def create_ckpt_dir():
     """체크포인트 저장 폴더 생성"""
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     ckpt_dir = f"ckpt/{timestamp}"
     os.makedirs(ckpt_dir, exist_ok=True)
+    log_file = os.path.join(ckpt_dir, f"train_{timestamp}.log")
+
+    # 기존 로거 가져오기
+    logger = logging.getLogger()
+    
+    # 기존 핸들러 제거 (중복 방지)
+    if logger.hasHandlers():
+        logger.handlers.clear()
+    
+    # 콘솔 및 파일 핸들러 추가
+    formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+    
+    # 파일 로그 저장
+    file_handler = logging.FileHandler(log_file)
+    file_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
+
+    # 콘솔 출력 핸들러 추가
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(formatter)
+    logger.addHandler(console_handler)
+
+    # 로깅 기본 레벨 설정
+    logger.setLevel(logging.INFO)
+
     return ckpt_dir
+
 
 def get_dataloaders(processor, train_dir, val_dir, batch_size=5):
     """데이터 로더 생성"""
     transform = transforms.Compose([
         transforms.RandomHorizontalFlip(p=0.5),  # 좌우 반전
-        transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),  # 색상 변화
-        transforms.RandomRotation(degrees=15),  # 회전
+        transforms.RandomVerticalFlip(p=0.5),
+        transforms.RandomEqualize(),
+        transforms.RandomRotation(degrees=(0, 180)),  # 회전
         transforms.RandomAffine(degrees=0, translate=(0.1, 0.1)),  # 이동 변환
     ])
 
@@ -45,14 +71,12 @@ def get_dataloaders(processor, train_dir, val_dir, batch_size=5):
     return train_dataloader, val_dataloader
 
 class OWLVITCLIPModel:
-    """
-    OwlViT 모델을 로드하고, LoRA를 적용한 후 학습/검증 및 체크포인트 저장 기능을 포함하는 클래스입니다.
-    """
     def __init__(self, model_name="google/owlvit-base-patch32", use_lora=True, lora_config_params=None):
         # 프로세서 및 기본 모델 로드
         self.processor = OwlViTProcessor.from_pretrained(model_name)
         self.model = OwlViTForObjectDetection.from_pretrained(model_name).to(device)
         self.model.train()
+        self.pool = nn.AdaptiveAvgPool2d((1, 1))
 
         # 전체 파라미터 Freeze
         for param in self.model.parameters():
@@ -63,16 +87,14 @@ class OWLVITCLIPModel:
             if lora_config_params is None:
                 lora_config_params = {"r": 4, "lora_alpha": 32, "lora_dropout": 0.1}
             lora_config = LoraConfig(
-                task_type="OTHER",  # 태스크에 따라 적절한 task_type으로 변경 가능
+                task_type="OTHER",
                 r=lora_config_params["r"],
                 lora_alpha=lora_config_params["lora_alpha"],
                 lora_dropout=lora_config_params["lora_dropout"],
                 target_modules=["text_projection", "visual_projection"]
             )
-            # PEFT 라이브러리를 이용하여 LoRA 어댑터 추가
             self.model = get_peft_model(self.model, lora_config)
         else:
-            # LoRA를 사용하지 않는 경우, 특정 레이어만 Unfreeze
             trainable_layers = [
                 self.model.owlvit.text_projection,
                 self.model.owlvit.visual_projection
@@ -81,20 +103,29 @@ class OWLVITCLIPModel:
                 for param in layer.parameters():
                     param.requires_grad = True
             self.model.owlvit.logit_scale.requires_grad = True
-
         trainable_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
         logging.info(f"🚀 Trainable Parameters: {trainable_params / 1e6:.2f}M")
-
+        
     def get_optimizer(self, lr=1e-4):
-        """옵티마이저 반환 (LoRA 어댑터 파라미터만 업데이트)"""
         return optim.AdamW(filter(lambda p: p.requires_grad, self.model.parameters()), lr=lr)
 
     def train(self, train_dir, val_dir, epochs=100, batch_size=16, lr=1e-4):
-        """모델 학습"""
         train_dataloader, val_dataloader = get_dataloaders(self.processor, train_dir, val_dir, batch_size)
         optimizer = self.get_optimizer(lr)
+    
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer, 
+        mode='min',
+        factor=0.5,
+        patience=5,
+        verbose=True
+        )
+        
         contrastive_loss = CLIPContrastiveLoss().to(device)
         ckpt_dir = create_ckpt_dir()
+        logging.info("🚀 Training Configuration:")
+        logging.info(f"🔹 Batch Size: {batch_size}")
+        logging.info(f"🔹 Learning Rate: {lr}")
         best_val_loss = float("inf")
 
         for epoch in range(epochs):
@@ -112,22 +143,28 @@ class OWLVITCLIPModel:
                     input_ids=input_ids,
                     attention_mask=attention_mask
                 )
-
                 # 비전 및 텍스트 임베딩 처리
-                vision_embeds = outputs.image_embeds.mean(dim=(1, 2))
-                text_embeds = outputs.text_embeds.squeeze(1)
+                vision_embeds = outputs.image_embeds
+                text_embeds = outputs.text_embeds
 
                 # 프로젝션 레이어 적용
                 vision_embeds = self.model.owlvit.visual_projection(vision_embeds)
-                text_embeds = self.model.owlvit.text_projection(text_embeds)
+                vision_embeds = vision_embeds.permute(0, 3, 1, 2)  
+                vision_embeds = self.pool(vision_embeds)  
+                vision_embeds = vision_embeds.squeeze(-1).squeeze(-1)
+                
+                text_embeds = self.model.owlvit.text_projection(text_embeds).squeeze(1)
 
                 loss = contrastive_loss(vision_embeds, text_embeds)
                 loss.backward()
                 optimizer.step()
                 total_loss += loss.item()
-                break
             val_loss = self.validate(val_dataloader, contrastive_loss)
-            logging.info(f"Epoch {epoch+1} | Train Loss: {total_loss / len(train_dataloader):.4f} | Val Loss: {val_loss:.4f}")
+            scheduler.step(val_loss)
+            current_lr = optimizer.param_groups[0]['lr']
+
+            logging.info(f"Epoch {epoch+1} | Train Loss: {total_loss / len(train_dataloader):.6f} | Val Loss: {val_loss:.6f} | LR: {current_lr:.6f}")
+
 
             best_val_loss = self.save_checkpoint(optimizer, epoch, total_loss, val_loss, ckpt_dir, best_val_loss)
 
@@ -147,11 +184,17 @@ class OWLVITCLIPModel:
                     attention_mask=attention_mask
                 )
 
-                vision_embeds = outputs.image_embeds.mean(dim=(1, 2))
-                text_embeds = outputs.text_embeds.squeeze(1)
+                # 비전 및 텍스트 임베딩 처리
+                vision_embeds = outputs.image_embeds
+                text_embeds = outputs.text_embeds
 
+                # 프로젝션 레이어 적용
                 vision_embeds = self.model.owlvit.visual_projection(vision_embeds)
-                text_embeds = self.model.owlvit.text_projection(text_embeds)
+                vision_embeds = vision_embeds.permute(0, 3, 1, 2)  
+                vision_embeds = self.pool(vision_embeds)  
+                vision_embeds = vision_embeds.squeeze(-1).squeeze(-1)
+                
+                text_embeds = self.model.owlvit.text_projection(text_embeds).squeeze(1)
 
                 loss = contrastive_loss(vision_embeds, text_embeds)
                 total_loss += loss.item()
@@ -169,6 +212,6 @@ class OWLVITCLIPModel:
         torch.save(checkpoint, f"{ckpt_dir}/epoch_{epoch+1}.pth")
         if val_loss < best_val_loss:
             torch.save(checkpoint, f"{ckpt_dir}/best_model.pth")
-            logging.info(f"🔹 Best model updated at {ckpt_dir}/best_model.pth")
+            logging.info(f"Best model updated at {ckpt_dir}/best_model.pth")
             best_val_loss = val_loss
         return best_val_loss

@@ -27,11 +27,11 @@ def visualize_bboxes(json_path, image_path, output_path="debu.jpg"):
         cv2.imwrite(output_path, image)
 
 if __name__ == "__main__":
-    visualize_bboxes("./train/1241219023343044_1_Outer.json", "./train/1241219023343044_1_Outer.bmp", output_path=f"1241219023343044_1_Outer.jpg")
-    visualize_bboxes("./augmented_non_stabbed/1241219023343044_1_Outer_non_stabbed.json", "./augmented_non_stabbed/1241219023343044_1_Outer_non_stabbed.bmp", output_path="1241219023343044_1_Outer_non_stabbed.jpg")
-
+    json_path = f"./train/1241218144156467_1_Outer.json"
+    image_path = f"./train/1241218144156467_1_Outer.bmp"
+    visualize_bboxes(json_path, image_path, output_path=f"11241218144156467_1_Outer.jpg")
     
-    for i in range(2,10):
-        json_path = f"./train_augmented/1241219023343044_1_Outer_non_stabbed_{i}.json"
-        image_path = f"./train_augmented/1241219023343044_1_Outer_non_stabbed_{i}.bmp"
-        visualize_bboxes(json_path, image_path, output_path=f"1241219023343044_1_Outer_non_stabbed_{i}.jpg")
+    for i in range(0, 5):
+        json_path = f"./total_dataset/train_dataset/1241218144156467_1_Outer_patch_{i}.json"
+        image_path = f"./total_dataset/train_dataset/1241218144156467_1_Outer_patch_{i}.bmp"
+        visualize_bboxes(json_path, image_path, output_path=f"11241218144156467_1_Outer_patch_{i}.jpg")

@@ -181,5 +181,7 @@ test
 cutmix_visualizations
 *.pth
 ckpt
+ckpt_final
 .DS_Store
 total_dataset
+first_epoch_data

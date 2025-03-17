@@ -41,6 +41,7 @@ def split_data(data_dir, output_dir, train_ratio=0.8, random_seed=42):
     train_size = int(len(pairs) * train_ratio)
     train_pairs = pairs[:train_size]
     val_pairs = pairs[train_size:]
+    print(len(train_pairs), len(val_pairs))
 
     # 파일 복사 함수
     def move_files(pairs, target_dir):
