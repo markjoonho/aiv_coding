@@ -41,7 +41,6 @@ def create_ckpt_dir():
 
 
 def get_dataloaders(processor, train_dir, val_dir, batch_size=5):
-    """데이터 로더 생성"""
     transform = transforms.Compose([
         transforms.RandomHorizontalFlip(p=0.5),
         transforms.RandomVerticalFlip(p=0.5),

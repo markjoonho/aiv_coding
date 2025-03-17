@@ -4,11 +4,6 @@ import json
 from shapely.geometry import Polygon, box
 
 def clip_polygon_to_patch(polygon_points, patch_x, patch_y, patch_size):
-    """
-    주어진 폴리곤 좌표를 (patch_x, patch_y)에서 시작하는 patch_size×patch_size 패치 영역으로 클리핑합니다.
-    교집합 결과가 Polygon인 경우, 다각형의 좌표(패치 좌표계로 보정)를 리스트로 반환합니다.
-    교집합이 없거나 Polygon이 아닌 경우 빈 리스트를 반환합니다.
-    """
     patch_rect = box(patch_x, patch_y, patch_x + patch_size, patch_y + patch_size)
     poly = Polygon(polygon_points)
     if not poly.is_valid or poly.is_empty:
@@ -23,9 +18,6 @@ def clip_polygon_to_patch(polygon_points, patch_x, patch_y, patch_size):
             coords = coords[:-1]
         coords = [[x - patch_x, y - patch_y] for x, y in coords]
         return [coords]
-    else:
-        # MultiPolygon 등 다른 타입은 처리하지 않음
-        return []
 
 def update_bbox(points):
     xs = [pt[0] for pt in points]
@@ -39,9 +31,6 @@ def update_bbox(points):
 def process_image_and_json(image_path, json_path, output_dir, patch_size, stride):
     base_name = os.path.splitext(os.path.basename(image_path))[0]
     image = cv2.imread(image_path)
-    if image is None:
-        print(f"이미지 읽기 실패: {image_path}")
-        return
     with open(json_path, "r") as f:
         annotation = json.load(f)
     
@@ -94,16 +83,14 @@ def process_folder(folder_path, output_dir, patch_size, stride):
             json_path = os.path.join(folder_path, json_filename)
             if os.path.exists(json_path):
                 process_image_and_json(image_path, json_path, output_dir, patch_size, stride)
-            else:
-                print(f"{filename}에 해당하는 JSON 어노테이션 파일이 없습니다.")
 
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser("Generate patches")
-    parser.add_argument("--folder", type=str, default="./total_dataset/train/", help="원본 이미지와 JSON 파일이 있는 폴더 경로")
-    parser.add_argument("--output", type=str, default="./total_dataset/train_dataset/", help="패치 이미지와 JSON 파일을 저장할 출력 폴더 경로")
-    parser.add_argument("--patch_size", type=int, default=832, help="패치의 크기 (기본값: 832)")
-    parser.add_argument("--stride", type=int, default=277, help="슬라이딩 윈도우의 stride (지정하지 않으면 patch_size의 1/3 사용)")
+    parser.add_argument("--folder", type=str, default="./total_dataset/train/")
+    parser.add_argument("--output", type=str, default="./total_dataset/train_dataset/")
+    parser.add_argument("--patch_size", type=int, default=832)
+    parser.add_argument("--stride", type=int, default=277)
     args = parser.parse_args()
 
     process_folder(args.folder, args.output, args.patch_size, args.stride)

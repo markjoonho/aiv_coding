@@ -3,12 +3,12 @@ from clip_model import OWLVITCLIPModel
 
 def main():
     parser = argparse.ArgumentParser(description="Train OWLVITCLIPModel with custom parameters")
-    parser.add_argument('--train_dir', type=str, default="./total_dataset/train_dataset/", help='Path to training dataset')
-    parser.add_argument('--val_dir', type=str, default="./total_dataset/val_dataset/", help='Path to validation dataset')
-    parser.add_argument('--epochs', type=int, default=100, help='Number of training epochs')
-    parser.add_argument('--batch_size', type=int, default=64, help='Batch size for training')
-    parser.add_argument('--lr', type=float, default=1e-5, help='Learning rate for training')
-    parser.add_argument('--use_lora', action='store_true', help='Enable LoRA (Low-Rank Adaptation)')
+    parser.add_argument('--train_dir', type=str, default="./total_dataset/train_dataset/")
+    parser.add_argument('--val_dir', type=str, default="./total_dataset/val_dataset/")
+    parser.add_argument('--epochs', type=int, default=100)
+    parser.add_argument('--batch_size', type=int, default=64)
+    parser.add_argument('--lr', type=float, default=1e-5)
+    parser.add_argument('--use_lora', action='store_true')
     
     args = parser.parse_args()
     
