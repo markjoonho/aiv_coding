@@ -6,7 +6,7 @@ from torch.utils.data import Dataset
 from PIL import Image
 
 class ImageTextBBoxDataset(Dataset):
-    def __init__(self, image_dir, processor, transform=None, annotation_ext='.json'):
+    def __init__(self, image_dir, processor=None, transform=None, annotation_ext='.json', oversample=5):
         """
         image_dir: 이미지가 저장된 디렉토리 경로
         processor: 텍스트와 이미지를 전처리할 processor (예: HuggingFace processor)
@@ -22,7 +22,7 @@ class ImageTextBBoxDataset(Dataset):
             os.path.join(root, f)
             for root, _, files in os.walk(self.image_dir)
             for f in files if f.lower().endswith(".bmp")
-        ] * 5
+        ] * oversample
     
     def __len__(self):
         return len(self.image_paths)
@@ -95,30 +95,52 @@ class ImageTextBBoxDataset(Dataset):
             normalized_bboxes = torch.empty((0, 4), dtype=torch.float)
 
         # processor 적용
-        inputs = self.processor(text=label, images=image, return_tensors="pt")
+        if self.processor is not None:
+            inputs = self.processor(text=label, images=image, return_tensors="pt")
 
-        return {
-            "pixel_values": inputs["pixel_values"].squeeze(0),
-            "input_ids": inputs["input_ids"].squeeze(0),
-            "attention_mask": inputs["attention_mask"].squeeze(0),
-            "bboxes": normalized_bboxes  # (cx, cy, w, h) 정규화된 형식
-        }
+            return {
+                "image_path": image_path,
+                "pixel_values": inputs["pixel_values"].squeeze(0),
+                "input_ids": inputs["input_ids"].squeeze(0),
+                "attention_mask": inputs["attention_mask"].squeeze(0),
+                "bboxes": normalized_bboxes  # (cx, cy, w, h) 정규화된 형식
+            }
+        else:
+            return {
+                "image_path": image_path,
+                "image": image,
+                "text": label,
+                "bboxes": normalized_bboxes
+            }
 
 
 # ✅ Collate Function 정의 (배치 데이터 변환)
 def collate_fn(batch):
-    pixel_values = torch.stack([item["pixel_values"] for item in batch])
-    input_ids = torch.stack([item["input_ids"] for item in batch])
-    attention_mask = torch.stack([item["attention_mask"] for item in batch])
-    # bboxes의 경우 이미지마다 box 개수가 다를 수 있으므로 리스트 형태로 반환합니다.
-    bboxes = [item["bboxes"] for item in batch]
     
-    return {
-        "pixel_values": pixel_values,      # (batch, 3, H, W)
-        "input_ids": input_ids,            # (batch, sequence_length)
-        "attention_mask": attention_mask,  # (batch, sequence_length)
-        "bboxes": bboxes                   # List of tensors, 각 tensor shape: (num_boxes, 4)
-    }
+    image_paths = [item['image_path'] for item in batch]
+    if "pixel_values" in batch[0]:
+        pixel_values = torch.stack([item["pixel_values"] for item in batch])
+        input_ids = torch.stack([item["input_ids"] for item in batch])
+        attention_mask = torch.stack([item["attention_mask"] for item in batch])
+        # bboxes의 경우 이미지마다 box 개수가 다를 수 있으므로 리스트 형태로 반환합니다.
+        bboxes = [item["bboxes"] for item in batch]
+        
+        return {
+            "image_path": image_paths,
+            "pixel_values": pixel_values,      # (batch, 3, H, W)
+            "input_ids": input_ids,            # (batch, sequence_length)
+            "attention_mask": attention_mask,  # (batch, sequence_length)
+            "bboxes": bboxes                   # List of tensors, 각 tensor shape: (num_boxes, 4)
+        }
+    else:
+        images = [item['image'] for item in batch]
+        bboxes = [item["bboxes"] for item in batch]
+        return {
+            "image_path": image_paths,
+            "images": images,
+            "bboxes": bboxes
+        }
+        
 
 
 if __name__ == "__main__":

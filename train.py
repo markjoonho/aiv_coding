@@ -257,7 +257,7 @@ if __name__ == "__main__":
     parser.add_argument("--checkpoint_path", type=str, default="./ckpt/20250317_164612/train_20250317_164612/best_model.pth", help="Path to checkpoint for model initialization")
     parser.add_argument("--model_name", type=str, default="google/owlvit-base-patch32", help="Pretrained model name")
     parser.add_argument("--device", type=str, default="cuda", help="Device to use for training")
-    parser.add_argument("--use_lora", type=lambda x: (str(x).lower() == 'true'), default=True, help="Whether to use LoRA (True/False)")
+    parser.add_argument('--use_lora', action='store_true', help='Enable LoRA (Low-Rank Adaptation)')
     parser.add_argument("--lora_r", type=int, default=4, help="LoRA rank")
     parser.add_argument("--lora_alpha", type=int, default=32, help="LoRA alpha")
     parser.add_argument("--lora_dropout", type=float, default=0.1, help="LoRA dropout rate")
